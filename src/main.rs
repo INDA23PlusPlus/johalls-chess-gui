@@ -49,7 +49,7 @@ impl event::EventHandler<GameError> for MainState {
                 Rect::new(0., 0., window_height / 8.0, window_width / 8.0),
                 col,
             )
-                .unwrap();
+            .unwrap();
             canvas.draw(
                 &square,
                 Vec2::new(
@@ -142,30 +142,18 @@ impl event::EventHandler<GameError> for MainState {
                 y: window_height / 5.0,
             });
 
-            canvas.draw(&t, DrawParam::default().dest(Vec2::new(
-                30.0,
-                window_height * 2.0 / 5.0,
-            )).color(Color::RED));
+            canvas.draw(
+                &t,
+                DrawParam::default()
+                    .dest(Vec2::new(30.0, window_height * 2.0 / 5.0))
+                    .color(Color::RED),
+            );
         }
 
         canvas.finish(ctx)?;
         Ok(())
     }
 
-    fn key_down_event(
-        &mut self,
-        _ctx: &mut Context,
-        input: KeyInput,
-        _repeated: bool,
-    ) -> GameResult {
-        if input.keycode.is_some_and(|key| key == VirtualKeyCode::Left) && self.boards.len() > 1 {
-            self.future_boards.push(self.boards.pop().unwrap());
-        }
-        if input.keycode.is_some_and(|key| key == VirtualKeyCode::Right) && !self.future_boards.is_empty() {
-            self.boards.push(self.future_boards.pop().unwrap());
-        }
-        Ok(())
-    }
     fn mouse_button_down_event(
         &mut self,
         ctx: &mut Context,
@@ -234,7 +222,8 @@ impl event::EventHandler<GameError> for MainState {
                 b.switch_turn();
                 self.boards.push(b);
                 self.future_boards.clear();
-            } else if board.get_board()[(7 - pos.y as usize) * 8 + pos.x as usize] != ChessPiece::None
+            } else if board.get_board()[(7 - pos.y as usize) * 8 + pos.x as usize]
+                != ChessPiece::None
             {
                 add_move_squares();
             }
@@ -245,6 +234,29 @@ impl event::EventHandler<GameError> for MainState {
             }
         }
 
+        Ok(())
+    }
+    fn key_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        input: KeyInput,
+        _repeated: bool,
+    ) -> GameResult {
+        if let Some(key) = input.keycode {
+            match key {
+                VirtualKeyCode::Left => {
+                    if self.boards.len() > 1 {
+                        self.future_boards.push(self.boards.pop().unwrap());
+                    }
+                }
+                VirtualKeyCode::Right => {
+                    if !self.future_boards.is_empty() {
+                        self.boards.push(self.future_boards.pop().unwrap());
+                    }
+                }
+                _ => {}
+            }
+        }
         Ok(())
     }
 }
