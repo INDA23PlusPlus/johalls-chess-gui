@@ -15,6 +15,7 @@ struct MainState {
     selected_square: Option<Vec2>,
     move_squares: Vec<Vec2>,
     capture_squares: Vec<Vec2>,
+    future_boards: Vec<ChessGame>,
 }
 
 impl MainState {
@@ -24,6 +25,7 @@ impl MainState {
             selected_square: None,
             move_squares: vec![],
             capture_squares: vec![],
+            future_boards: vec![],
         };
         Ok(s)
     }
@@ -157,7 +159,10 @@ impl event::EventHandler<GameError> for MainState {
         _repeated: bool,
     ) -> GameResult {
         if input.keycode.is_some_and(|key| key == VirtualKeyCode::Left) && self.boards.len() > 1 {
-            self.boards.pop().unwrap();
+            self.future_boards.push(self.boards.pop().unwrap());
+        }
+        if input.keycode.is_some_and(|key| key == VirtualKeyCode::Right) && !self.future_boards.is_empty() {
+            self.boards.push(self.future_boards.pop().unwrap());
         }
         Ok(())
     }
@@ -228,6 +233,7 @@ impl event::EventHandler<GameError> for MainState {
                 b.apply_move(m);
                 b.switch_turn();
                 self.boards.push(b);
+                self.future_boards.clear();
             } else if board.get_board()[(7 - pos.y as usize) * 8 + pos.x as usize] != ChessPiece::None
             {
                 add_move_squares();
