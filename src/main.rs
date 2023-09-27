@@ -2,9 +2,10 @@ extern crate chess;
 
 use chess::*;
 use ggez::conf::{WindowMode, WindowSetup};
-use ggez::event;
+use ggez::event::MouseButton;
 use ggez::glam::*;
 use ggez::graphics::{self, Color, DrawParam, PxScale, Rect};
+use ggez::{event, GameError};
 use ggez::{Context, GameResult};
 
 #[cfg(test)]
@@ -82,22 +83,21 @@ fn print_board(board: &[ChessPiece; 64]) {
 
 struct MainState {
     boards: Vec<ChessGame>,
-    pos_x: f32,
+    highlighted_square: Option<Vec2>,
 }
 
 impl MainState {
     fn new() -> GameResult<MainState> {
         let s = MainState {
             boards: vec![ChessGame::new()],
-            pos_x: 0.0,
+            highlighted_square: None,
         };
         Ok(s)
     }
 }
 
-impl event::EventHandler<ggez::GameError> for MainState {
+impl event::EventHandler<GameError> for MainState {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
-        self.pos_x = self.pos_x % 800.0 + 1.0;
         Ok(())
     }
 
@@ -115,6 +115,24 @@ impl event::EventHandler<ggez::GameError> for MainState {
         // )?;
         // canvas.draw(&circle, Vec2::new(self.pos_x, 380.0));
         let (window_width, window_height) = ctx.gfx.drawable_size();
+
+        let mut draw_square = |i, j, col| {
+            let square = graphics::Mesh::new_rectangle(
+                ctx,
+                graphics::DrawMode::fill(),
+                Rect::new(0., 0., window_height / 8.0, window_width / 8.0),
+                col,
+            )
+            .unwrap();
+            canvas.draw(
+                &square,
+                Vec2::new(
+                    window_width / 8.0 * j as f32,
+                    window_height / 8.0 * i as f32,
+                ),
+            );
+        };
+
         for i in 0..8 {
             for j in 0..8 {
                 let col = if (i + j) % 2 == 0 {
@@ -123,20 +141,16 @@ impl event::EventHandler<ggez::GameError> for MainState {
                     graphics::Color::from([0.1, 0.2, 0.3, 1.0])
                 };
 
-                let square = graphics::Mesh::new_rectangle(
-                    ctx,
-                    graphics::DrawMode::fill(),
-                    Rect::new(0., 0., window_height / 8.0, window_width / 8.0),
-                    col,
-                )?;
-                canvas.draw(
-                    &square,
-                    Vec2::new(
-                        window_width / 8.0 * i as f32,
-                        window_height / 8.0 * j as f32,
-                    ),
-                );
+                draw_square(i, j, col);
             }
+        }
+
+        if let Some(highlighted_square) = self.highlighted_square {
+            draw_square(
+                highlighted_square.y as i32,
+                highlighted_square.x as i32,
+                graphics::Color::from([0.3, 0.6, 0.9, 1.0]),
+            )
         }
 
         let board = self.boards.last().unwrap();
@@ -157,14 +171,14 @@ impl event::EventHandler<ggez::GameError> for MainState {
                     });
                     t.set_bounds(Vec2::new(window_width / 10., window_height / 10.))
                         .set_scale(PxScale {
-                            x: window_width / 10.,
-                            y: window_height / 10.,
+                            x: window_width / 10.0,
+                            y: window_height / 10.0,
                         });
 
                     let col = if p.color().unwrap() == ChessColor::Wh {
-                        Color::WHITE
+                        Color::from([0.8, 0.8, 0.8, 1.0])
                     } else {
-                        Color::BLACK
+                        Color::from([0.1, 0.1, 0.1, 1.0])
                     };
                     canvas.draw(
                         &t,
@@ -184,6 +198,21 @@ impl event::EventHandler<ggez::GameError> for MainState {
         canvas.finish(ctx)?;
         Ok(())
     }
+
+    fn mouse_button_down_event(
+        &mut self,
+        ctx: &mut Context,
+        _button: MouseButton,
+        x: f32,
+        y: f32,
+    ) -> GameResult {
+        let (window_width, _window_height) = ctx.gfx.drawable_size();
+        self.highlighted_square = Some(Vec2::new(
+            (x / (window_width / 8.)).floor(),
+            (y / (window_width / 8.)).floor(),
+        ));
+        Ok(())
+    }
 }
 
 pub fn main() -> GameResult {
@@ -194,4 +223,3 @@ pub fn main() -> GameResult {
     let state = MainState::new()?;
     event::run(ctx, event_loop, state)
 }
-
