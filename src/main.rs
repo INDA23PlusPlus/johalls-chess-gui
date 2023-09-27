@@ -136,6 +136,15 @@ impl event::EventHandler<GameError> for MainState {
         }
 
         if board.is_ended() {
+            canvas.draw(
+                &graphics::Mesh::new_rectangle(
+                    ctx,
+                    graphics::DrawMode::fill(),
+                    Rect::new(0.0, 0.0, window_width, window_height),
+                    Color::from([0.0, 0.0, 0.0, 0.5]),
+                )?,
+                DrawParam::default(),
+            );
             let mut t = Text::new("Game Over");
             t.set_scale(PxScale {
                 x: window_width / 5.0,
@@ -146,7 +155,7 @@ impl event::EventHandler<GameError> for MainState {
                 &t,
                 DrawParam::default()
                     .dest(Vec2::new(30.0, window_height * 2.0 / 5.0))
-                    .color(Color::RED),
+                    .color(Color::BLACK),
             );
         }
 
@@ -246,11 +255,17 @@ impl event::EventHandler<GameError> for MainState {
             match key {
                 VirtualKeyCode::Left => {
                     if self.boards.len() > 1 {
+                        self.selected_square = None;
+                        self.move_squares.clear();
+                        self.capture_squares.clear();
                         self.future_boards.push(self.boards.pop().unwrap());
                     }
                 }
                 VirtualKeyCode::Right => {
                     if !self.future_boards.is_empty() {
+                        self.selected_square = None;
+                        self.move_squares.clear();
+                        self.capture_squares.clear();
                         self.boards.push(self.future_boards.pop().unwrap());
                     }
                 }
