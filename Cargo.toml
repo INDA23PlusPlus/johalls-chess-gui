@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 chess = { git = "https://github.com/INDA23PlusPlus/sieric-chess" }
+ggez = "0.9.3"
 rayon = "1.8.0"
