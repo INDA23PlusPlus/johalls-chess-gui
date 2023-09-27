@@ -9,7 +9,6 @@ use ggez::input::keyboard::KeyInput;
 use ggez::winit::event::VirtualKeyCode;
 use ggez::{event, GameError};
 use ggez::{Context, GameResult};
-use std::io::Write;
 
 struct MainState {
     boards: Vec<ChessGame>,
@@ -153,7 +152,7 @@ impl event::EventHandler<GameError> for MainState {
 
     fn key_down_event(
         &mut self,
-        ctx: &mut Context,
+        _ctx: &mut Context,
         input: KeyInput,
         _repeated: bool,
     ) -> GameResult {
@@ -229,11 +228,9 @@ impl event::EventHandler<GameError> for MainState {
                 b.apply_move(m);
                 b.switch_turn();
                 self.boards.push(b);
-            } else {
-                if board.get_board()[(7 - pos.y as usize) * 8 + pos.x as usize] != ChessPiece::None
-                {
-                    add_move_squares();
-                }
+            } else if board.get_board()[(7 - pos.y as usize) * 8 + pos.x as usize] != ChessPiece::None
+            {
+                add_move_squares();
             }
         } else {
             self.selected_square = Some(pos);
