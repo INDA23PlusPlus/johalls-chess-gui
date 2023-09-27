@@ -4,82 +4,12 @@ use chess::*;
 use ggez::conf::{WindowMode, WindowSetup};
 use ggez::event::MouseButton;
 use ggez::glam::*;
-use ggez::graphics::{self, Color, DrawParam, PxScale, Rect};
+use ggez::graphics::{self, Color, DrawParam, PxScale, Rect, Text};
+use ggez::input::keyboard::KeyInput;
+use ggez::winit::event::VirtualKeyCode;
 use ggez::{event, GameError};
 use ggez::{Context, GameResult};
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rayon::prelude::*;
-
-    fn perft(g: &ChessGame, depth: usize) -> u64 {
-        if depth == 0 {
-            return 1;
-        }
-
-        if depth > 2 {
-            g.get_legal_moves(&g.turn)
-                .par_iter()
-                .map(|m| {
-                    let mut b = g.clone();
-                    b.apply_move(m);
-                    b.switch_turn();
-
-                    perft(&b, depth - 1)
-                })
-                .sum()
-        } else {
-            g.get_legal_moves(&g.turn)
-                .iter()
-                .map(|m| {
-                    let mut b = g.clone();
-                    b.apply_move(m);
-                    b.switch_turn();
-
-                    perft(&b, depth - 1)
-                })
-                .sum()
-        }
-    }
-
-    #[test]
-    fn perft_test() {
-        assert_eq!(perft(&ChessGame::new(), 1), 20);
-        assert_eq!(perft(&ChessGame::new(), 2), 400);
-        assert_eq!(perft(&ChessGame::new(), 3), 8902);
-        assert_eq!(perft(&ChessGame::new(), 4), 197281);
-    }
-}
-
-fn print_board(board: &[ChessPiece; 64]) {
-    use ChessColor::*;
-    use ChessPiece::*;
-    fn c(col: &ChessColor) -> String {
-        return if *col == Wh {
-            String::from("\x1b[34m")
-        } else {
-            String::from("\x1b[31m")
-        };
-    }
-
-    for y in 0..8 {
-        print!("{} ", 8 - y);
-        for x in 0..8 {
-            match &board[56 - y * 8 + x] {
-                P(col) => print!("{}P\x1b[m", c(col)),
-                R(col) => print!("{}R\x1b[m", c(col)),
-                N(col) => print!("{}N\x1b[m", c(col)),
-                B(col) => print!("{}B\x1b[m", c(col)),
-                Q(col) => print!("{}Q\x1b[m", c(col)),
-                K(col) => print!("{}K\x1b[m", c(col)),
-                None => print!("."),
-            };
-        }
-        println!();
-    }
-    println!("  abcdefgh");
-}
+use std::io::Write;
 
 struct MainState {
     boards: Vec<ChessGame>,
@@ -109,15 +39,6 @@ impl event::EventHandler<GameError> for MainState {
         let mut canvas =
             graphics::Canvas::from_frame(ctx, graphics::Color::from([0.0, 0.0, 0.0, 1.0]));
 
-        // let circle = graphics::Mesh::new_circle(
-        //     ctx,
-        //     graphics::DrawMode::fill(),
-        //     Vec2::new(0.0, 0.0),
-        //     100.0,
-        //     2.0,
-        //     Color::WHITE,
-        // )?;
-        // canvas.draw(&circle, Vec2::new(self.pos_x, 380.0));
         let (window_width, window_height) = ctx.gfx.drawable_size();
 
         let mut draw_square = |i, j, col| {
@@ -127,7 +48,7 @@ impl event::EventHandler<GameError> for MainState {
                 Rect::new(0., 0., window_height / 8.0, window_width / 8.0),
                 col,
             )
-            .unwrap();
+                .unwrap();
             canvas.draw(
                 &square,
                 Vec2::new(
@@ -180,7 +101,7 @@ impl event::EventHandler<GameError> for MainState {
                 let p = board.get_board()[i * 8 + j];
 
                 if p != ChessPiece::None {
-                    let mut t = graphics::Text::new(match p {
+                    let mut t = Text::new(match p {
                         ChessPiece::P(_) => "P",
                         ChessPiece::N(_) => "N",
                         ChessPiece::B(_) => "B",
@@ -213,12 +134,34 @@ impl event::EventHandler<GameError> for MainState {
             }
         }
 
-        // canvas.draw(&graphics::Image::from_path(ctx, "/icon.png")?, Vec2::new(0., 0.));
+        if board.is_ended() {
+            let mut t = Text::new("Game Over");
+            t.set_scale(PxScale {
+                x: window_width / 5.0,
+                y: window_height / 5.0,
+            });
+
+            canvas.draw(&t, DrawParam::default().dest(Vec2::new(
+                30.0,
+                window_height * 2.0 / 5.0,
+            )).color(Color::RED));
+        }
 
         canvas.finish(ctx)?;
         Ok(())
     }
 
+    fn key_down_event(
+        &mut self,
+        ctx: &mut Context,
+        input: KeyInput,
+        _repeated: bool,
+    ) -> GameResult {
+        if input.keycode.is_some_and(|key| key == VirtualKeyCode::Left) && self.boards.len() > 1 {
+            self.boards.pop().unwrap();
+        }
+        Ok(())
+    }
     fn mouse_button_down_event(
         &mut self,
         ctx: &mut Context,
@@ -305,6 +248,7 @@ impl event::EventHandler<GameError> for MainState {
 
 pub fn main() -> GameResult {
     let cb = ggez::ContextBuilder::new("Chess", "JonathanHallstrom")
+        .add_resource_path(std::path::PathBuf::from("resources"))
         .window_mode(WindowMode::default().dimensions(800., 800.))
         .window_setup(WindowSetup::default().title("Chess").icon("/icon.png"));
     let (ctx, event_loop) = cb.build()?;
