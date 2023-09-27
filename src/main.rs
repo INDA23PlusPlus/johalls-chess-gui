@@ -83,14 +83,18 @@ fn print_board(board: &[ChessPiece; 64]) {
 
 struct MainState {
     boards: Vec<ChessGame>,
-    highlighted_square: Option<Vec2>,
+    selected_square: Option<Vec2>,
+    move_squares: Vec<Vec2>,
+    capture_squares: Vec<Vec2>,
 }
 
 impl MainState {
     fn new() -> GameResult<MainState> {
         let s = MainState {
             boards: vec![ChessGame::new()],
-            highlighted_square: None,
+            selected_square: None,
+            move_squares: vec![],
+            capture_squares: vec![],
         };
         Ok(s)
     }
@@ -103,7 +107,7 @@ impl event::EventHandler<GameError> for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas =
-            graphics::Canvas::from_frame(ctx, graphics::Color::from([0.1, 0.2, 0.3, 1.0]));
+            graphics::Canvas::from_frame(ctx, graphics::Color::from([0.0, 0.0, 0.0, 1.0]));
 
         // let circle = graphics::Mesh::new_circle(
         //     ctx,
@@ -145,11 +149,27 @@ impl event::EventHandler<GameError> for MainState {
             }
         }
 
-        if let Some(highlighted_square) = self.highlighted_square {
+        if let Some(highlighted_square) = self.selected_square {
             draw_square(
                 highlighted_square.y as i32,
                 highlighted_square.x as i32,
                 graphics::Color::from([0.3, 0.6, 0.9, 1.0]),
+            )
+        }
+
+        for pos in &self.move_squares {
+            draw_square(
+                pos.y as i32,
+                pos.x as i32,
+                graphics::Color::from([0.0, 1.0, 0.0, 0.3]),
+            )
+        }
+
+        for pos in &self.capture_squares {
+            draw_square(
+                pos.y as i32,
+                pos.x as i32,
+                graphics::Color::from([1.0, 0.0, 0.0, 0.3]),
             )
         }
 
@@ -206,11 +226,79 @@ impl event::EventHandler<GameError> for MainState {
         x: f32,
         y: f32,
     ) -> GameResult {
+        self.move_squares.clear();
+        self.capture_squares.clear();
         let (window_width, _window_height) = ctx.gfx.drawable_size();
-        self.highlighted_square = Some(Vec2::new(
+
+        let pos = Vec2::new(
             (x / (window_width / 8.)).floor(),
             (y / (window_width / 8.)).floor(),
-        ));
+        );
+
+        let board = self.boards.last().unwrap();
+        let moves = board.get_legal_moves(&board.turn);
+
+        let mut add_move_squares = || {
+            self.move_squares = moves
+                .iter()
+                .filter_map(|m| {
+                    if m.origin == (7 - pos.y as usize) * 8 + pos.x as usize
+                        && m.captures == ChessPiece::None
+                    {
+                        let x = m.target % 8;
+                        let y = 7 - m.target / 8;
+                        Some(Vec2::new(x as f32, y as f32))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            self.capture_squares = moves
+                .iter()
+                .filter_map(|m| {
+                    if m.origin == (7 - pos.y as usize) * 8 + pos.x as usize
+                        && m.captures != ChessPiece::None
+                    {
+                        let x = m.target % 8;
+                        let y = 7 - m.target / 8;
+                        Some(Vec2::new(x as f32, y as f32))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+        };
+
+        if self.selected_square.is_some_and(|p| p == pos) {
+            self.selected_square = None;
+        } else if self.selected_square.is_some() {
+            let start_pos = Vec2::new(
+                self.selected_square.unwrap().x,
+                7. - self.selected_square.unwrap().y,
+            );
+            let end_pos = Vec2::new(pos.x, 7. - pos.y);
+            self.selected_square = Some(pos);
+            if let Some(m) = moves.iter().find(|m| {
+                m.origin == start_pos.y as usize * 8 + start_pos.x as usize
+                    && m.target == end_pos.y as usize * 8 + end_pos.x as usize
+            }) {
+                let mut b = board.clone();
+                b.apply_move(m);
+                b.switch_turn();
+                self.boards.push(b);
+            } else {
+                if board.get_board()[(7 - pos.y as usize) * 8 + pos.x as usize] != ChessPiece::None
+                {
+                    add_move_squares();
+                }
+            }
+        } else {
+            self.selected_square = Some(pos);
+            if board.get_board()[(7 - pos.y as usize) * 8 + pos.x as usize] != ChessPiece::None {
+                add_move_squares();
+            }
+        }
+
         Ok(())
     }
 }
